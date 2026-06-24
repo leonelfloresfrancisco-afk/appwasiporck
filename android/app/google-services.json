@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "180772469280",
+    "project_id": "wasiporck",
+    "storage_bucket": "wasiporck.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:180772469280:android:985f3b7641739236889a45",
+        "android_client_info": {
+          "package_name": "com.wasipork.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "180772469280-18ki79m2qv871n4l6acemtsm2rnhiv1e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wasipork.app",
+            "certificate_hash": "8be56e5a1cb17771fa603408493ba7c2b3ae42a5"
+          }
+        },
+        {
+          "client_id": "180772469280-vu0ver5nioukt56vuc6uviv0c0b87s8t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2EJYmauLDM1DtlUlvtDL7wHx3kHG7wo0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "180772469280-vu0ver5nioukt56vuc6uviv0c0b87s8t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
