@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_assets.dart';
-import '../../../core/navigation/main_navigation_screen.dart';
+import 'package:wasipork/core/navigation/main_navigation_screen.dart';
 import '../../auth/screens/login_screen.dart';
 import '../controllers/splash_controller.dart';
 
@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final Widget nextScreen = tieneSesion
-        ? const MainNavigationScreen()
+        ? MainNavigationScreen()
         : const LoginScreen();
 
     Navigator.of(context).pushReplacement(

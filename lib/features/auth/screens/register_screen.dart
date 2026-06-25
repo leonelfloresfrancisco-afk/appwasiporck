@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../dashboard/screens/dashboard_screen.dart';
+import 'package:wasipork/core/constants/app_colors.dart';
+import 'package:wasipork/core/navigation/main_navigation_screen.dart';
+
 import '../controllers/register_controller.dart';
-import '../controllers/google_auth_controller.dart'; // 🔽 Agregado
-import '../../../core/constants/app_colors.dart';
-import '../widgets/auth_logo.dart';
+import '../controllers/google_auth_controller.dart';
 import '../widgets/email_field.dart';
 import '../widgets/first_name_field.dart';
 import '../widgets/last_name_field.dart';
@@ -22,82 +22,74 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController firstNameController = TextEditingController();
-  final TextEditingController lastNameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  final registerController = RegisterController();
+  final googleAuthController = GoogleAuthController();
 
   bool acceptedTerms = false;
   bool isLoading = false;
-
-  final RegisterController registerController = RegisterController();
-  final GoogleAuthController googleAuthController =
-      GoogleAuthController(); // 🔽 Agregado
 
   @override
   void dispose() {
     firstNameController.dispose();
     lastNameController.dispose();
     emailController.dispose();
+    phoneController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
-    phoneController.dispose();
     super.dispose();
+  }
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   Future<void> register() async {
     if (firstNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ingrese sus nombres')));
+      showMessage('Ingrese sus nombres');
       return;
     }
+
     if (lastNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ingrese sus apellidos')));
+      showMessage('Ingrese sus apellidos');
       return;
     }
+
     if (emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ingrese su correo')));
+      showMessage('Ingrese su correo');
       return;
     }
+
     if (phoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingrese su número de teléfono')),
-      );
+      showMessage('Ingrese su número de teléfono');
       return;
     }
+
     if (passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ingrese una contraseña')));
+      showMessage('Ingrese una contraseña');
       return;
     }
+
     if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden')),
-      );
+      showMessage('Las contraseñas no coinciden');
       return;
     }
+
     if (!acceptedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debe aceptar los términos y condiciones'),
-        ),
-      );
+      showMessage('Debe aceptar los términos y condiciones');
       return;
     }
 
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
       await registerController.register(
         nombres: firstNameController.text.trim(),
@@ -109,17 +101,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cuenta creada correctamente')),
-      );
-
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       String message = 'Error al registrar usuario';
+
       if (e.code == 'email-already-in-use') {
         message = 'Este correo ya está registrado';
       } else if (e.code == 'weak-password') {
@@ -128,256 +117,227 @@ class _RegisterScreenState extends State<RegisterScreen> {
         message = 'Correo inválido';
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      if (!mounted) return;
+      showMessage(message);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (!mounted) return;
+      showMessage(e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // 🔄 Reemplazado por completo el método de autenticación con Google
   Future<void> googleRegister() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
       final UserCredential? credential = await googleAuthController
           .signInWithGoogle();
 
-      if (credential == null) {
-        return;
-      }
+      if (credential == null) return;
 
       if (!mounted) return;
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error Google: $e')));
+      showMessage('Error Google: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  void goLogin() {
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: goLogin,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          color: AppColors.primary,
+        ),
+        title: const Text(
+          'Crear cuenta',
+          style: TextStyle(
+            color: AppColors.dark,
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+          ),
+        ),
+      ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          children: [
+            RichText(
+              textAlign: TextAlign.left,
+              text: const TextSpan(
                 children: [
-                  const AuthLogo(),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Crear Cuenta',
+                  TextSpan(
+                    text: 'Registro en ',
                     style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.dark,
+                      height: 1.15,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Wasi',
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
                       color: AppColors.primary,
+                      height: 1.15,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Completa tus datos para comenzar',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-                  ),
-                  const SizedBox(height: 30),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FirstNameField(controller: firstNameController),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: LastNameField(controller: lastNameController),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  EmailField(controller: emailController),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PasswordField(controller: passwordController),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ConfirmPasswordField(
-                          controller: confirmPasswordController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  PhoneField(controller: phoneController),
-                  const SizedBox(height: 12),
-
-                  // ================= COMPONENTE DESPLEGABLE LEGAL =================
-                  Theme(
-                    data: Theme.of(
-                      context,
-                    ).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(
-                        left: 48,
-                        right: 12,
-                        bottom: 8,
-                      ),
-                      trailing: const Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 20,
-                        color: Colors.grey,
-                      ),
-                      leading: Checkbox(
-                        value: acceptedTerms,
-                        onChanged: (value) {
-                          setState(() {
-                            acceptedTerms = value ?? false;
-                          });
-                        },
-                      ),
-                      title: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(fontSize: 14, color: Colors.black87),
-                          children: [
-                            TextSpan(text: 'Acepto los '),
-                            TextSpan(
-                              text: 'Términos, Condiciones y Políticas',
-                              style: TextStyle(
-                                color: AppColors.danger,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      children: [
-                        RichText(
-                          textAlign: TextAlign.justify,
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.black54,
-                              height: 1.4,
-                            ),
-                            children: [
-                              TextSpan(
-                                text:
-                                    'Autorizo de manera previa, libre, expresa e inequívoca el almacenamiento y tratamiento de mis datos personales en su banco de datos, así como el envío de alertas, publicidad y notificaciones comerciales a través de correo electrónico, SMS, llamadas telefónicas, ',
-                              ),
-                              TextSpan(
-                                text:
-                                    'redes sociales y demás canales de comunicación digital',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              TextSpan(
-                                text:
-                                    ', conforme a la Ley N° 29733 (Ley de Protección de Datos Personales del Perú) y su Política de Privacidad.',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  TextSpan(
+                    text: 'Porck',
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.danger,
+                      height: 1.15,
                     ),
                   ),
-
-                  // =================================================================
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 45,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.danger,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('REGISTRARME'),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'O',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 25),
-
-                  // 🎯 Botón modificado para controlar el estado de carga (isLoading)
-                  GoogleButton(onPressed: isLoading ? () {} : googleRegister),
-
-                  const SizedBox(height: 25),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('¿Ya tienes cuenta?'),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Text(
-                          'Iniciar sesión',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
-          ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              'Crea tu acceso para gestionar madres, partos y alertas.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Row(
+              children: [
+                Expanded(
+                  child: FirstNameField(controller: firstNameController),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: LastNameField(controller: lastNameController)),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            EmailField(controller: emailController),
+
+            const SizedBox(height: 12),
+            PhoneField(controller: phoneController),
+
+            const SizedBox(height: 12),
+            PasswordField(controller: passwordController),
+
+            const SizedBox(height: 12),
+            ConfirmPasswordField(controller: confirmPasswordController),
+
+            const SizedBox(height: 4),
+
+            CheckboxListTile(
+              value: acceptedTerms,
+              onChanged: (value) {
+                setState(() => acceptedTerms = value ?? false);
+              },
+              activeColor: AppColors.primary,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: 'Acepto los '),
+                    TextSpan(
+                      text: 'Términos y Políticas',
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                style: TextStyle(fontSize: 12.5, color: Colors.black87),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : register,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 21,
+                        height: 21,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'CREAR CUENTA',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'O',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            GoogleButton(onPressed: isLoading ? () {} : googleRegister),
+
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );

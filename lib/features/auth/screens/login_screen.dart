@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../dashboard/screens/dashboard_screen.dart';
+import 'package:wasipork/core/constants/app_colors.dart';
+import 'package:wasipork/core/navigation/main_navigation_screen.dart';
+
 import '../controllers/auth_controller.dart';
-import '../controllers/google_auth_controller.dart';
 import 'register_screen.dart';
 
-import '../widgets/auth_footer.dart';
 import '../widgets/auth_logo.dart';
-import '../widgets/auth_title.dart';
 import '../widgets/email_field.dart';
 import '../widgets/forgot_password_link.dart';
 import '../widgets/login_button.dart';
@@ -25,16 +23,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController emailController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  final TextEditingController passwordController = TextEditingController();
-
-  final AuthController authController = AuthController();
-
-  final GoogleAuthController googleAuthController = GoogleAuthController();
+  final authController = AuthController();
 
   bool rememberMe = false;
-
   bool isLoading = false;
 
   @override
@@ -44,11 +38,15 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   Future<void> login() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
       await authController.login(
         email: emailController.text.trim(),
@@ -57,72 +55,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
-      String mensaje = 'Error de autenticación';
+      String message = 'Correo o contraseña incorrectos';
 
-      if (e.code == 'user-not-found') {
-        mensaje = 'Usuario no encontrado';
+      if (e.code == 'invalid-email') {
+        message = 'Correo inválido';
+      } else if (e.code == 'user-not-found') {
+        message = 'Usuario no encontrado';
       } else if (e.code == 'wrong-password') {
-        mensaje = 'Contraseña incorrecta';
-      } else if (e.code == 'invalid-email') {
-        mensaje = 'Correo inválido';
+        message = 'Contraseña incorrecta';
       } else if (e.code == 'invalid-credential') {
-        mensaje = 'Correo o contraseña incorrectos';
+        message = 'Correo o contraseña incorrectos';
       }
 
       if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(mensaje)));
+      showMessage(message);
+    } catch (_) {
+      if (!mounted) return;
+      showMessage('No se pudo iniciar sesión');
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   void forgotPassword() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Recuperación de contraseña próximamente')),
-    );
-  }
-
-  Future<void> googleLogin() async {
-    try {
-      setState(() {
-        isLoading = true;
-      });
-
-      final result = await googleAuthController.signInWithGoogle();
-
-      if (result == null) return;
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    }
+    showMessage('Recuperación de contraseña próximamente');
   }
 
   void register() {
@@ -134,111 +96,118 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.white,
-
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          children: [
+            const SizedBox(height: 20),
 
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            const Center(child: AuthLogo()),
 
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+            const SizedBox(height: 28),
 
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-
+            RichText(
+              textAlign: TextAlign.center,
+              text: const TextSpan(
                 children: [
-                  const AuthLogo(),
-
-                  const SizedBox(height: 20),
-
-                  const AuthTitle(),
-
-                  const SizedBox(height: 35),
-
-                  SizedBox(
-                    width: double.infinity,
-
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-
-                      children: [
-                        EmailField(controller: emailController),
-
-                        const SizedBox(height: 20),
-
-                        PasswordField(controller: passwordController),
-
-                        const SizedBox(height: 12),
-
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-
-                          children: [
-                            Expanded(
-                              child: RememberMe(
-                                value: rememberMe,
-
-                                onChanged: (value) {
-                                  setState(() {
-                                    rememberMe = value ?? false;
-                                  });
-                                },
-                              ),
-                            ),
-
-                            ForgotPasswordLink(onTap: forgotPassword),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        LoginButton(onPressed: login, isLoading: isLoading),
-
-                        const SizedBox(height: 25),
-
-                        Row(
-                          children: [
-                            const Expanded(child: Divider()),
-
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-
-                              child: Text(
-                                'O',
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
-                            ),
-
-                            const Expanded(child: Divider()),
-                          ],
-                        ),
-
-                        const SizedBox(height: 25),
-
-                        const SizedBox(height: 20),
-
-                        RegisterCard(onTap: register),
-                      ],
+                  TextSpan(
+                    text: 'Bienvenido a ',
+                    style: TextStyle(
+                      fontSize: 29,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.dark,
+                      letterSpacing: -0.6,
                     ),
                   ),
-
-                  const SizedBox(height: 25),
-
-                  const AuthFooter(),
-
-                  SizedBox(height: size.height * 0.02),
+                  TextSpan(
+                    text: 'Wasi',
+                    style: TextStyle(
+                      fontSize: 29,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Porck',
+                    style: TextStyle(
+                      fontSize: 29,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.danger,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              'Control reproductivo, alertas sanitarias y productividad de madres porcinas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+            const SizedBox(height: 36),
+
+            const Text(
+              'Iniciar sesión',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.dark,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            EmailField(controller: emailController),
+
+            const SizedBox(height: 16),
+
+            PasswordField(controller: passwordController),
+
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Expanded(
+                  child: RememberMe(
+                    value: rememberMe,
+                    onChanged: (value) {
+                      setState(() {
+                        rememberMe = value ?? false;
+                      });
+                    },
+                  ),
+                ),
+                ForgotPasswordLink(onTap: forgotPassword),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            LoginButton(
+              onPressed: isLoading ? () {} : login,
+              isLoading: isLoading,
+            ),
+
+            const SizedBox(height: 18),
+
+            RegisterCard(onTap: register),
+
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
