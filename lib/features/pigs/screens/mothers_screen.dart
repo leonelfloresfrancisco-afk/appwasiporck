@@ -1,37 +1,28 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../reproduction/screens/register_actions_screen.dart';
 import '../models/mother_model.dart';
+import '../services/mother_service.dart';
 
 class MothersScreen extends StatelessWidget {
-  const MothersScreen({super.key});
+  MothersScreen({super.key});
 
-  Future<String?> _getFarmId() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
+  final MotherService _motherService = MotherService();
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
-    return doc.data()?['farmId'];
+  Future<String?> _getFarmId() {
+    return _motherService.getFarmId();
   }
 
   Stream<List<MotherModel>> _mothersStream(String farmId) {
-    return FirebaseFirestore.instance
-        .collection('farms')
-        .doc(farmId)
-        .collection('mothers')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => MotherModel.fromFirestore(doc))
-              .toList(),
-        );
+    return _motherService.watchMothers(farmId);
+  }
+
+  void _goToRegister(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterActionsScreen()),
+    );
   }
 
   @override
@@ -39,9 +30,7 @@ class MothersScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.light,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showRegisterMotherSheet(context);
-        },
+        onPressed: () => _goToRegister(context),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.add_rounded),
@@ -96,7 +85,7 @@ class MothersScreen extends StatelessWidget {
                       const _EmptyState(
                         title: 'Aún no hay madres',
                         subtitle:
-                            'Registra tu primera cerda reproductora para iniciar el control productivo.',
+                            'Registra tu primera cerda reproductora desde el módulo Registrar.',
                       )
                     else
                       ...mothers.map((mother) => _MotherCard(mother: mother)),
@@ -194,7 +183,7 @@ class _SummaryRow extends StatelessWidget {
           child: _SummaryCard(
             icon: Icons.biotech_rounded,
             value: '$pregnant',
-            label: 'Gestantes',
+            label: 'Gestación',
             color: AppColors.dark,
           ),
         ),
@@ -228,30 +217,38 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 92,
-      padding: const EdgeInsets.all(12),
+      height: 104,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 22),
-          const Spacer(),
+          const SizedBox(height: 6),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: AppColors.dark,
+              height: 1,
             ),
           ),
+          const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
+              height: 1,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w700,
             ),
@@ -269,6 +266,7 @@ class _MotherCard extends StatelessWidget {
 
   Color get statusColor {
     if (mother.status == 'culled') return AppColors.danger;
+    if (mother.status == 'dead') return AppColors.danger;
     if (mother.reproductiveStatus == 'pregnant') return AppColors.primary;
     if (mother.reproductiveStatus == 'lactating') return AppColors.dark;
     return Colors.grey;
@@ -326,10 +324,11 @@ class _MotherCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
                     _ChipLabel(text: statusText, color: statusColor),
-                    const SizedBox(width: 6),
                     _ChipLabel(
                       text: '${mother.historicalParturitions} partos',
                       color: AppColors.primary,
@@ -442,213 +441,6 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-Future<void> _showRegisterMotherSheet(BuildContext context) async {
-  final codeController = TextEditingController();
-  final breedController = TextEditingController();
-
-  await showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          22,
-          20,
-          22,
-          MediaQuery.of(context).viewInsets.bottom + 22,
-        ),
-        child: _RegisterMotherForm(
-          codeController: codeController,
-          breedController: breedController,
-        ),
-      );
-    },
-  );
-
-  codeController.dispose();
-  breedController.dispose();
-}
-
-class _RegisterMotherForm extends StatefulWidget {
-  final TextEditingController codeController;
-  final TextEditingController breedController;
-
-  const _RegisterMotherForm({
-    required this.codeController,
-    required this.breedController,
-  });
-
-  @override
-  State<_RegisterMotherForm> createState() => _RegisterMotherFormState();
-}
-
-class _RegisterMotherFormState extends State<_RegisterMotherForm> {
-  bool isSaving = false;
-
-  Future<String?> _getFarmId() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
-    return doc.data()?['farmId'];
-  }
-
-  Future<void> saveMother() async {
-    final code = widget.codeController.text.trim();
-    final breed = widget.breedController.text.trim();
-
-    if (code.isEmpty) {
-      _showMessage('Ingrese el número de arete');
-      return;
-    }
-
-    try {
-      setState(() => isSaving = true);
-
-      final farmId = await _getFarmId();
-
-      if (farmId == null || farmId.isEmpty) {
-        _showMessage('No se encontró la granja del usuario');
-        return;
-      }
-
-      final motherRef = FirebaseFirestore.instance
-          .collection('farms')
-          .doc(farmId)
-          .collection('mothers')
-          .doc();
-
-      await motherRef.set({
-        'motherId': motherRef.id,
-        'farmId': farmId,
-        'code': code,
-        'breed': breed,
-        'reproductiveStatus': 'empty',
-        'status': 'active',
-        'historicalParturitions': 0,
-        'totalBornAlive': 0,
-        'totalWeaned': 0,
-        'lifetimeMortalityRate': 0.0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-
-      Navigator.pop(context);
-      _showMessage('Madre registrada correctamente');
-    } catch (e) {
-      _showMessage('No se pudo registrar la madre');
-    } finally {
-      if (mounted) setState(() => isSaving = false);
-    }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 46,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Registrar madre',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: AppColors.dark,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: widget.codeController,
-            decoration: _inputDecoration(
-              label: 'Número de arete',
-              icon: Icons.tag_rounded,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: widget.breedController,
-            decoration: _inputDecoration(
-              label: 'Raza / línea genética',
-              icon: Icons.pets_rounded,
-            ),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: isSaving ? null : saveMother,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: isSaving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        color: AppColors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      'GUARDAR MADRE',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: AppColors.primary),
-      filled: true,
-      fillColor: AppColors.light,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
       ),
     );
   }
